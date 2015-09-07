@@ -1,0 +1,10 @@
+#!/bin/bash
+
+GIT_REPOS="subscription-manager python-rhsm candlepin"
+
+for GIT_REPO in $GIT_REPOS ; 
+do 
+    echo "${GIT_REPO}"
+    git --git-dir="${HOME}/src/${GIT_REPO}/.git/" yesterday
+done
+

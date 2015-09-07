@@ -1,0 +1,6 @@
+BACKUPDIR=/home/adrian/backup_bash_history/
+BACKUPFILE="${BACKUPDIR}/$(date "+%s")"
+
+cp /home/adrian/.bash_history "${BACKUPFILE}"
+chown adrian.adrian "${BACKUPFILE}"
+

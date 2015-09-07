@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo "ldconfig/ld"
+ldconfig -v -N -X  2>&1 | grep "^\/" 
+
+
+env | grep -i "path\|dir\|home"

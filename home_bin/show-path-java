@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo "JAVA_HOME=${JAVA_HOME}"
+
+# java related alternative links, sans man pages
+if command -v alternatives >/dev/null 2>&1 ; then
+    alternatives --display java | grep -v \.1\.gz
+fi
+
+# default "java", assuming openjdk
+java -XshowSettings:sun.boot.class.path 2>&1 | grep "\.path\|\.dir\|\.home"

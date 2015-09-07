@@ -1,0 +1,22 @@
+#!/bin/bash
+
+PYTHON_BIN=$(which python)
+echo "python: ${PYTHON_BIN}"
+
+PYTHON_BIN_PREFIX=$(python-config --prefix)
+echo "python-config --prefix: ${PYTHON_BIN_PREFIX}"
+
+PYTHON_BIN_INCLUDES=$(python-config --includes)
+echo "python-config --includes: ${PYTHON_BIN_INCLUDES}"
+
+PYTHON2_BIN=$(which python2)
+echo "python2: ${PYTHON2_BIN}"
+
+PYTHON3_BIN=$(which python3)
+echo "python3: ${PYTHON3_BIN}"
+
+PIP_EXEC=$(which pip)
+echo "pip exec: ${PIP_EXEC}"
+
+EASY_INSTALL=$(which easy_install)
+echo "easy_install: ${EASY_INSTALL}"

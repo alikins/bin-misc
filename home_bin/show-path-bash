@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# various env variables related to paths
+echo "PATH=${PATH}"
+echo
+
+echo "PYTHONPATH=${PYTHONPATH}"
+echo
+
+echo "GEM_PATH=${GEM_PATH}"
+echo
+
+echo "rvm_bin_path=${rvm_bin_path}"
+echo
+
+echo "rvm_path=${rvm_path}"
+echo
+
+echo "rvm_prefix=${rvm_prefix}"
+echo
+
+echo "JAVA_HOME=${JAVA_HOME}"
+echo
+
+echo "M2_REPO=${M2_REPO}"
+echo
+
+
+

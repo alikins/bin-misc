@@ -1,0 +1,5 @@
+#!/bin/bash
+
+PYTHONPATH="${HOME}/src/subscription-manager/src:${HOME}/src/python-rhsm/src/"
+
+"${HOME}"/src/subscription-manager/bin/subscription-manager

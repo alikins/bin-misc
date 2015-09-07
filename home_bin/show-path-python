@@ -1,0 +1,41 @@
+#!/usr/bin/python
+
+# try to be python 2/3 ish
+
+import sys
+import site
+import os
+
+print "sys.argv:", sys.argv
+
+print("env vars")
+print("PATH: %s" % os.environ.get('PATH'))
+print("HOME: %s" % os.environ.get('HOME'))
+print("PYTHONPATH: %s" % os.environ.get('PYTHONPATH'))
+print("PYTHONHOME: %s" % os.environ.get('PYTHONHOME'))
+print("PYTHONNOUSERSITE: %s" % os.environ.get('PYTHONNOUSERSITE'))
+print("PYTHONUSERBASE: %s" % os.environ.get('PYTHONUSERBASE'))
+
+print("")
+print("python sys paths")
+print("sys.path: \n\t%s" % '\n\t'.join(sys.path))
+print("sys.prefix: %s" % sys.prefix)
+print("sys.exec_prefix: %s" % sys.exec_prefix)
+print("sys.meta_path: %s" % sys.meta_path)
+print("sys.path_hooks: %s" % sys.path_hooks)
+
+print("")
+print("python site.py (+sitcustomize)")
+print("site.PREFIXES: %s" % site.PREFIXES)
+print("site.USER_SITE: %s" % site.USER_SITE)
+print("site.USER_BASE: %s" % site.USER_BASE)
+print("site.getsitepackages(): \n\t%s" % '\n\t'.join(site.getsitepackages()))
+
+try:
+    import sitecustomize
+except ImportError, e:
+    print(e)
+    sys.exit()
+
+print("")
+print("sitecustomize dir: %s" % dir(sitecustomize))

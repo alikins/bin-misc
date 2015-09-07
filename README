@@ -1,0 +1,5 @@
+backup_history: backup .bash_history
+parse_names: parse a particular yaml file of dns/bind config
+show-path*: show various important paths for various tools
+            (ie, PYTHONPATH, GEM_PATH, sys.path, etc)
+yum-list-repo: to show all the packages in a particular repo

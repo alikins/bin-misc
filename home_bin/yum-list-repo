@@ -1,0 +1,3 @@
+#!/bin/bash
+
+yum --disablerepo="*" --enablerepo="$1" list available

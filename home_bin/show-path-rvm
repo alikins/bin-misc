@@ -1,0 +1,10 @@
+#!/bin/bash
+if ! [ -x "$(command -v rvm >/dev/null 2>&1)" ] ; then
+    exit 1
+fi
+
+echo "rvm info"
+rvm info
+
+echo "gemsets info"
+rvm gemset list_all

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo PYTHONPATH=$HOME/src/subscription-manager/src:$HOME/src/python-rhsm/src/ bin/subscription-manager-gui
