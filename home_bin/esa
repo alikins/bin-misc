@@ -1,0 +1,2 @@
+#!/bin/bash
+env | sort -r | grep -i 'ansible.*=\|^PATH=\|^PYTHONPATH='
