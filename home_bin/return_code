@@ -1,0 +1,3 @@
+#!/bin/bash
+# just exit with the return code in the first arg
+exit "${1}"

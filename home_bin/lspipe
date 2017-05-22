@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# lspipe - list pipes and related processes
+#
+# Copyright (C) 2013 Red Hat, Inc.
+#
+# Author: Masatake YAMATO <yamato@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+LC_ALL=C
+LANG=C
+
+declare -A R_PIPE2PIDS
+declare -A W_PIPE2PIDS
+declare PIPES
+
+print_help()
+{
+    printf "Usage:\n"
+    printf "	$0 --help|-h\n"
+    printf "	$0"
+
+    exit $1
+}
+
+parse_args()
+{
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    --help|-h)
+		print_help 0
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		printf "Unexpected argument %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	esac
+	shift
+    done
+}
+
+scan()
+{
+    local process_file
+    local pid
+    local pipe_file
+    local pipe_inode
+    local l r w fd
+
+    for process_file in /proc/[0-9]*; do
+	pid=${process_file##*/}
+	for pipe_file in $process_file/fd/*; do
+	    if [[ ! -e $pipe_file ]]; then
+		    continue
+	    fi
+	    if [[ "$(readlink $pipe_file)" =~ ^pipe:\[([0-9]+)\] ]]; then
+		    pipe_inode=${BASH_REMATCH[1]}
+		    PIPES="$PIPES $pipe_inode"
+
+            l=$(ls -l $pipe_file)
+            r=${l:1:1}
+            w=${l:2:1}
+            fd=${pipe_file##*/}
+
+            if [[ "$r" = "r" ]]; then
+                R_PIPE2PIDS[$pipe_inode]="${R_PIPE2PIDS[$pipe_inode]} $pid:$fd"
+            fi
+            if [[ "$w" = "w" ]]; then
+                W_PIPE2PIDS[$pipe_inode]="${W_PIPE2PIDS[$pipe_inode]} $pid:$fd"
+            fi
+	    fi
+	done
+    done
+}
+
+member()
+{
+    local a=$1
+    local b
+    shift
+
+    for b in "$@"; do
+        if [[ $b = $a ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+thread_leader_p()
+{
+    local tid=$1
+    [[ $tid = $(sed -n -e 's/Tgid:	//p' < /proc/$tid/status) ]]
+    return $?
+}
+report0()
+{
+    local inode=$1
+    local thread=-
+
+    echo $inode
+    for w in ${W_PIPE2PIDS[$inode]}; do
+        if thread_leader_p ${w%:*}; then
+            thread=''
+        fi
+
+        printf "	  %s (%s%s) |\n"  "$(readlink /proc/${w%:*}/exe)" "$thread" $w
+    done
+
+    for r in ${R_PIPE2PIDS[$inode]}; do
+        if thread_leader_p ${r%:*}; then
+            thread=''
+        fi
+        printf "	| %s (%s%s)\n"  "$(readlink /proc/${r%:*}/exe)" "$thread" $r
+    done
+    echo
+}
+
+report()
+{
+    local inode
+
+    for inode in $(for inode in  $PIPES; do echo $inode; done | sort -n | uniq); do
+    	report0 "$inode"
+    done
+}
+
+main()
+{
+    parse_args "$@"
+    scan
+    report
+}
+
+main "$@"

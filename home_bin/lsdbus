@@ -1,0 +1,822 @@
+#!/bin/bash
+#
+# lsdbus - list dbus related names and objects
+#
+# Copyright (C) 2013 Red Hat, Inc.
+#
+# Author: Masatake YAMATO <yamato@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+# methods, signals, properties
+SUBCOMMANDS="examples processes activatables busnames objects interfaces methods signals properties"
+SERVICE_DEF_DIR=/usr/share/dbus-1
+
+# TODO
+# bash ./lsdbus objects org.bluez
+# dbus-send --system --dest=org.bluez --type=method_call --print-reply / org.freedesktop.DBus.Introspectable.Introspect
+
+# The output of type may be translated.
+LANG=C
+
+readonly bus_service=org.freedesktop.DBus
+
+normalize_introspection_xml()
+{
+    sed -n -e '/string "/,$p' | sed -e '1 { s/.*string "// }' -e '$ { s/"$// }' \
+	| xmllint --format - 2> /dev/null
+}
+
+print_help()
+{
+    local scmd;
+    local func
+
+    printf "Usage:"
+    for scmd in help $SUBCOMMANDS; do
+	func=${scmd}_help
+	if func_p $func; then
+	    $func $scmd
+	fi
+    done
+    exit $1
+}
+
+help_help()
+{
+    printf "	$0 --help|-h\n"
+}
+
+help_list()
+{
+    print_help
+}
+
+cdr()
+{
+    shift
+    echo "$@"
+}
+
+member()
+{
+    local elt=$1
+    shift
+    local x
+
+    for x in "$@"; do
+	if [[ "$x" = "$elt" ]]; then
+	    return 0
+	fi
+    done
+    return 1
+}
+
+examples_help()
+{
+    printf "	$0 examples [$(tr ' ' '|' <<<$(cdr $SUBCOMMANDS))]\n"
+}
+
+examples_list()
+{
+    local self="$1"
+    shift
+
+    local target="$1"
+    shift
+
+    if [[ -n "${target}" ]]; then
+	if ! member "$target" $SUBCOMMANDS; then
+	    printf "No such target: %s\n" $target 1>&2
+	    print_help 1 1>&2
+	else
+	    SUBCOMMANDS=${target}
+	fi
+    fi
+
+    printf "Exampls:\n"
+    for scmd in $SUBCOMMANDS; do
+	func=${scmd}_printeg
+	if func_p $func; then
+	    printf "[%s]\n" $scmd
+	    $func $scmd
+	fi
+    done
+}
+
+properties_help()
+{
+    printf "	$0 $1 [--session|--system] BUSNAME OBJECTPATH INTERFACE\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+properties_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus properties org.fedoraproject.FirewallD1  /org/fedoraproject/FirewallD1 org.fedoraproject.FirewallD1.policies
+	LockdownDisabled
+	LockdownEnabled
+	LockdownWhitelistContextAdded
+	LockdownWhitelistUidAdded
+	...
+EOF
+}
+
+# TODO: Merge code with methods_list
+properties_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local busname=
+    local path=
+    local iface=
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		if [[ -n "$busname" ]]; then
+		    printf "Too many argument\n" $1 1>&2
+		    print_help 1 1>&2
+		fi
+		busname=$1
+		shift
+		path=$1
+		shift
+		iface=$1
+		shift
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z "$busname" || -z "$path"  || -z "$iface" ]]; then
+	printf "Too few argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    dbus-send --system --dest=$busname --type=method_call --print-reply \
+	${path} ${bus_service}.Introspectable.Introspect \
+	| normalize_introspection_xml \
+	| xmllint --xpath "//interface[@name='$iface']/property/@name" -  2>/dev/null \
+	| xargs -n 1 echo \
+	| sed -n -e 's/name=\(.*\)/\1/p'
+}
+
+signals_help()
+{
+    printf "	$0 $1 [--session|--system] BUSNAME OBJECTPATH INTERFACE\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+signals_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus signals org.fedoraproject.FirewallD1  /org/fedoraproject/FirewallD1 org.fedoraproject.FirewallD1.policies
+	LockdownDisabled
+	LockdownEnabled
+	LockdownWhitelistContextAdded
+	LockdownWhitelistUidAdded
+	...
+EOF
+}
+
+# TODO: Merge code with methods_list
+signals_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local busname=
+    local path=
+    local iface=
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		if [[ -n "$busname" ]]; then
+		    printf "Too many argument\n" $1 1>&2
+		    print_help 1 1>&2
+		fi
+		busname=$1
+		shift
+		path=$1
+		shift
+		iface=$1
+		shift
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z "$busname" || -z "$path"  || -z "$iface" ]]; then
+	printf "Too few argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    dbus-send --system --dest=$busname --type=method_call --print-reply \
+	${path} ${bus_service}.Introspectable.Introspect \
+	| normalize_introspection_xml \
+	| xmllint --xpath "//interface[@name='$iface']/signal/@name" -  2> /dev/null \
+	| xargs -n 1 echo \
+	| sed -n -e 's/name=\(.*\)/\1/p'
+}
+
+methods_help()
+{
+    printf "	$0 $1 [--session|--system] BUSNAME OBJECTPATH INTERFACE\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+methods_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus methods org.fedoraproject.FirewallD1  /org/fedoraproject/FirewallD1 org.fedoraproject.FirewallD1.policies
+	addLockdownWhitelistContext
+	getLockdownWhitelistCommands
+	removeLockdownWhitelistCommand
+	addLockdownWhitelistUser
+	...
+EOF
+}
+
+methods_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local busname=
+    local path=
+    local iface=
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		if [[ -n "$busname" ]]; then
+		    printf "Too many argument\n" $1 1>&2
+		    print_help 1 1>&2
+		fi
+		busname=$1
+		shift
+		path=$1
+		shift
+		iface=$1
+		shift
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z "$busname" || -z "$path"  || -z "$iface" ]]; then
+	printf "Too few argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    dbus-send --system --dest=$busname --type=method_call --print-reply \
+	${path} ${bus_service}.Introspectable.Introspect \
+	| normalize_introspection_xml \
+	| xmllint --xpath "//interface[@name='$iface']/method/@name" -  \
+	| xargs -n 1 echo \
+	| sed -n -e 's/name=\(.*\)/\1/p'
+}
+
+interfaces_help()
+{
+    printf "	$0 $1 [--session|--system] BUSNAME OBJECTPATH\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+interfaces_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus interfaces org.bluez /
+	org.freedesktop.DBus.Introspectable
+	org.freedesktop.DBus.ObjectManager
+	...
+EOF
+}
+
+interfaces_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local busname=
+    local path=
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		if [[ -n "$busname" ]]; then
+		    printf "Too many argument\n" $1 1>&2
+		    print_help 1 1>&2
+		fi
+		busname=$1
+		shift
+		path=$1
+		shift
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z "$busname" || -z "$path" ]]; then
+	printf "Too few argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    dbus-send --system --dest=$busname --type=method_call --print-reply \
+	${path} ${bus_service}.Introspectable.Introspect \
+	| normalize_introspection_xml \
+	| xmllint --xpath '//interface/@name' -  \
+	| xargs -n 1 echo \
+	| sed -n -e 's/name=\(.*\)/\1/p'
+}
+
+objects_help()
+{
+    printf "	$0 $1 [--session|--system] BUSNAME [OBJECTPATH]\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+objects_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus objects org.fedoraproject.FirewallD1
+	/org
+	/org/fedoraproject
+	/org/fedoraproject/FirewallD1
+	/org/fedoraproject/FirewallD1/config
+	/org/fedoraproject/FirewallD1/config/icmptype
+	/org/fedoraproject/FirewallD1/config/icmptype/0
+
+	$ lsdbus objects org.fedoraproject.FirewallD1 /org/fedoraproject/FirewallD1/config
+	/org/fedoraproject/FirewallD1/config/icmptype
+	/org/fedoraproject/FirewallD1/config/icmptype/0
+	/org/fedoraproject/FirewallD1/config/icmptype/1
+	...
+EOF
+}
+
+objects_list_for_path()
+{
+    local bus=$1
+    local busname=$2
+    local path=$3
+    local sep=/
+    local comp
+
+    while read comp; do
+	[[ "${path}" = / ]] && sep=
+	[[ "${path}" = "${comp}" ]] && break
+	echo ${path}${sep}$comp
+	objects_list_for_path $bus $busname ${path}${sep}$comp
+    done < <(
+        [[ -z "${path}" ]] && path=/;
+	dbus-send --system --dest=$busname --type=method_call --print-reply \
+	    ${path} ${bus_service}.Introspectable.Introspect 2>/dev/null \
+	    | normalize_introspection_xml \
+	    | xmllint --xpath '//node/@name' -  2>/dev/null \
+	    | xargs -n 1 echo \
+	    | sed -n -e 's/name=\(.*\)/\1/p'
+    )
+}
+
+objects_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local busname=
+    local path=/
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		if [[ -n "$busname" ]]; then
+		    path=$1
+		    shift
+		    break
+		else
+		    busname=$1
+		fi
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z "$busname" ]]; then
+	printf "Too few argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    if [[ -n "$1" ]]; then
+	printf "Too many argument\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+
+    objects_list_for_path $bus $busname $path
+}
+
+busnames_help()
+{
+    printf "	$0 $1 [--session|--system] [--show-unique-connection-name|-u]\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+busnames_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus  busnames
+	org.gnome.DisplayManager
+	org.freedesktop.systemd1
+	org.freedesktop.machine1
+	org.freedesktop.login1
+	org.freedesktop.UPower
+	org.freedesktop.UDisks2
+	...
+EOF
+}
+
+busnames_list()
+{
+    local self="$1"
+    shift
+
+    local show_unique_connection_name
+    local bus="--system"
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --show-unique-connection-name|-u)
+		show_unique_connection_name=1
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		printf "Unknown argument: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	esac
+	shift
+    done
+
+    dbus-send $bus --dest=${bus_service} --type=method_call --print-reply / ${bus_service}.ListNames \
+	| sed -n -e 's/[ \t]\+string "\(.*\)"/\1/p' \
+	| sort -n -r \
+	| {
+	if [[ -n "$show_unique_connection_name" ]]; then
+	    cat
+	else
+	    grep -v '^:'
+	fi
+	}
+}
+
+activatables_help()
+{
+    printf "	$0 $1 [--session|--system] [--show-only-inactive]\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+activatables_printeg()
+{
+    cat <<"EOF"
+	$ lsdbus activatables
+	org.freedesktop.DBus
+	org.freedesktop.GeoClue2
+		Service file: /usr/share/dbus-1/system-services/org.freedesktop.GeoClue2.service
+		Exec=/usr/libexec/geoclue -t 5
+	org.freedesktop.login1
+		Service file: /usr/share/dbus-1/system-services/org.freedesktop.login1.service
+		Exec=/bin/false
+	...
+EOF
+    }
+activatables_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local sdir
+    local activatable
+    local pid
+    local f
+    local show_only_inactive=
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --show-only-inactive)
+		show_only_inactive=1
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		printf "Unknown argument: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	esac
+	shift
+    done
+
+    if [[ $bus = "--system" ]]; then
+	sdir=system-services
+    else
+	sdir=services
+    fi
+    while read activatable; do
+	pid=$(pid_for "$bus" "${activatable}")
+	if [[ -n "$pid" && -n "$show_only_inactive" ]]; then
+	    continue
+	fi
+	printf "%s\n" $activatable
+
+	for f in $(find ${SERVICE_DEF_DIR}/${sdir} -name "$activatable.service" -type f -exec grep -l -e "Name=$activatable" {} +); do
+	    printf "	Service desc file: %s\n" $f
+	    printf "	%s\n" "$(grep Exec= $f)"
+	    local s=$(grep SystemdService= $f)
+	    if [[ -n "$s" ]]; then
+		printf "	%s\n" "$s"
+	    fi
+	done
+    done < <(dbus-send $bus --dest=${bus_service} --type=method_call --print-reply / ${bus_service}.ListActivatableNames \
+	| sed -n -e 's/[ \t]\+string "\(.*\)"/\1/p')
+}
+
+processes_help()
+{
+    printf "	$0 $1 [--session|--system] [--well-known-only|-w]\n"
+
+    if [[ -n "$2" ]]; then
+	exit $2
+    fi
+}
+
+processes_printeg()
+{
+    cat <<"EOF"
+	# lsdbus processes  --system -w
+	#                               BUS NAME -   PID - CMDLINE
+	            org.freedesktop.systemd1:1.6 -     1 - /usr/lib/systemd/systemd --switched-root --system --deserialize 22 
+	        org.fedoraproject.FirewallD1:1.1 -   902 - /usr/bin/python -Es /usr/sbin/firewalld --nofork --nopid 
+	        org.freedesktop.RealtimeKit1:1.3 -   905 - /usr/libexec/rtkit-daemon 
+	            org.freedesktop.Accounts:1.4 -   906 - /usr/libexec/accounts-daemon 
+	               org.freedesktop.Avahi:1.7 -   986 - avahi-daemon: running [linux-4.local]
+                                                     ...
+
+EOF
+
+}
+
+processes_list()
+{
+    local self="$1"
+    shift
+
+    local bus="--system"
+    local connection
+    local connection_id
+    local connection_str
+    local pid
+    local well_known_only
+    local truncate="fold -w 40"
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    help|--help|-h)
+		${self}_help ${self} 0
+		;;
+	    --session)
+		bus="--session"
+		;;
+	    --system)
+		bus="--system"
+		;;
+	    --well-known-only|-w)
+		well_known_only=1
+		;;
+	    --no-truncate|-T)
+		truncate=cat
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		printf "Unknown argument: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	esac
+	shift
+    done
+
+    printf "# %38s - %5s - %s\n" "BUS NAME" "PID" "CMDLINE"
+
+    {
+	while read connection; do
+	    connection_str=$connection
+	    if [[ ${connection:0:1} = ":" ]]; then
+		if [[ -n "$well_known_only" ]]; then
+		    continue
+		fi
+	    else
+		connection_id=$(dbus-send $bus --dest=${bus_service} --type=method_call --print-reply / \
+		    ${bus_service}.GetNameOwner string:"${connection}"  \
+		    | sed -n 's/   string "\([^"]\+\)"/\1/p')
+		if [[ $connection_id != $connection ]]; then
+		    connection_str="$connection$connection_id"
+		fi
+	    fi
+
+	    pid=$(pid_for "$bus" "${connection}")
+
+	    if [[ -n $pid ]]; then
+		#	    printf "%40s - %5d - %s\n" "$connection_str" "$pid" $(readlink /proc/$pid/exe)
+		printf "%40s - %5d - %s\n" "$connection_str" "$pid" "$(tr '\0' ' ' < /proc/$pid/cmdline | ${truncate} | head -1)"
+	    else
+		printf "%40s - ????? - ?\n" "$connection_str"
+	    fi
+	done < <(dbus-send $bus --dest=${bus_service} --type=method_call --print-reply / ${bus_service}.ListNames \
+	    | sed -n -e 's/[ \t]\+string "\(.*\)"/\1/p')
+    } | sort -k 3
+}
+
+
+pid_for()
+{
+    local bus=$1
+    local connection=$2
+
+    dbus-send $bus \
+	--dest=${bus_service} \
+	--type=method_call \
+	--print-reply /  \
+	${bus_service}.GetConnectionUnixProcessID string:"$connection" \
+	2>/dev/null | sed -n -e 's/[ \t]\+uint32 \([0-9]\+\)/\1/p'
+    return $?
+}
+
+func_p()
+{
+    type "$1" 2> /dev/null | grep -q "$1 is a function"
+}
+
+main()
+{
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    --help|-h)
+		print_help 0
+		;;
+	    --*|-*)
+		printf "Unknown option: %s\n" $1 1>&2
+		print_help 1 1>&2
+		;;
+	    *)
+		break
+		;;
+	esac
+	shift
+    done
+
+    if [[ -z $1 ]]; then
+	printf "No subcommand given\n" 1 1>&2
+	print_help 1 1>&2
+    fi
+
+    if func_p $1_list; then
+	$1_list "$@"
+    else
+	printf "Unknown subcommand: %s\n" $1 1>&2
+	print_help 1 1>&2
+    fi
+    return $?
+}
+
+main "$@"

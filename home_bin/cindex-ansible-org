@@ -1,0 +1,2 @@
+#!/bin/bash
+cindex -no-follow-symlinks -exclude ~/csearch_excludes -indexpath ~/.csearch/ansible_org -verbose /home/adrian/src/ansible_org/

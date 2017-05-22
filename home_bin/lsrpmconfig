@@ -1,0 +1,337 @@
+#!/bin/bash
+#
+# lsrpmconfig --- list configuration files prepared by rpm packages
+#
+# Copyright (C) 2013 Red Hat, Inc.
+#
+# Author: Masatake YAMATO <yamato@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+function err
+{
+    echo "$*" 1>&2
+}
+
+function help
+{
+    local cmd=$(basename $0)
+cat<<EOF
+Usage:
+	$cmd --package-file|-p [--print-package-file|-f] PKGFILE...
+
+	    List configuration files packaged in rpm package files.
+
+	$cmd [--print-package-name|-n][--backup-info|-b][--show-diff|-d] [PKGNAME]..."
+
+	    List configuration files and their attributes that are
+	    installed to the system. Here attributes are noreplace,
+	    missingok, and ghost. If package names are given, list
+	    only about the package names. Extra attributes NOTFOUND
+	    is added if a configuration file is not found on the
+	    system.
+
+	    If --print-package-name is given, package names are
+	    prepended to each line of output.
+
+	    If --backup-info is given, check the existences of backup
+	    files(\*.rpmsave, \*.rpmorig, \*rpmnew) that are generated
+	    by rpm when installing or updating packages before. RPMSAVE,
+	    RPMORIG or RPMNEW are printed as extra attributes.
+
+	    If --show-diff is given and a backup file is created for a
+	    configuration file, the difference between them are shown.
+	
+
+	$cmd --diff-only|-D [PKGNAME]...
+
+	    Similar to --show-diff but don't print configuration file
+	    name and its attributes.
+
+	$cmd -h|--help
+	
+	    Show this help message
+
+Examples:
+
+	\$ lsrpmconfig -b -n glibc
+	lsrpmconfig -b -n glibc
+	glibc:/etc/gai.conf                            missingok noreplace ghost 
+	glibc:/etc/ld.so.cache                         missingok noreplace ghost 
+	glibc:/etc/ld.so.conf                          noreplace 
+	glibc:/etc/nsswitch.conf                       noreplace RPMNEW 
+	glibc:/etc/rpc                                 noreplace 
+	glibc:/usr/lib64/gconv/gconv-modules           noreplace 
+	glibc:/var/cache/ldconfig/aux-cache            missingok noreplace ghost 
+	glibc:/etc/gai.conf                            missingok noreplace ghost 
+	glibc:/etc/ld.so.cache                         missingok noreplace ghost 
+	glibc:/etc/ld.so.conf                          noreplace 
+	glibc:/etc/nsswitch.conf                       noreplace RPMNEW 
+	glibc:/etc/rpc                                 noreplace 
+	glibc:/usr/lib/gconv/gconv-modules             noreplace 
+	glibc:/var/cache/ldconfig/aux-cache            missingok noreplace ghost 
+
+EOF
+}
+
+function member_list
+{
+    local elt=$1
+    shift
+
+    local x    
+
+    for x in "$@"; do
+	if [[ "${x}" = "${elt}" ]]; then
+	    return 0
+	fi
+    done
+
+    return 0
+}
+
+
+function member_stream
+{
+    local elt=$1
+    shift
+    local l
+
+    while IFS="" read l; do
+	if [[ "${l}" = "${elt}" ]]; then
+	    return 0
+	fi
+    done
+
+    return 1
+}
+
+function printff
+{
+    local conf_file=$1
+    local flags=$2
+
+    printf "%- 40s " "${conf_file}"
+
+    # d: doc
+    # c: config
+    # s: specfile
+    # m: mssingok
+    # n: noreplace
+    # g: ghost
+    # l: license
+    # r: readme
+    
+    case "${flags}" in
+	*m*)
+	    printf "missingok "
+	    ;;&
+	*n*)
+	    printf "missingok "
+	    ;;&
+	*g*)
+	    printf "ghost "
+	    ;;&
+    esac
+
+    return 0
+}
+
+
+function run_lsrpmconfig_for_file
+{
+    local pkgfile=$1
+    local with_package_file=$2
+    local pkgname
+    local configs
+
+
+    configs=$(rpm -qlcp "${pkgfile}")
+    if [[ $? != 0 ]]; then
+	return 1
+    fi
+
+    rpm -qp --queryformat "[%{FILENAMES}\t%{FILEFLAGS:fflags}\n]" "${pkgfile}" \
+    	| while read file flags; do
+	if member_stream "${file}" <<< "${configs}"; then
+	    if [[ -n "${with_package_file}" ]]; then
+		printf "${pkgfile}:"
+	    fi
+	    printff "${file}" "${flags}"
+	    echo
+	fi
+    done
+			
+}
+
+function run_lsrpmconfig_for_name
+{
+    local pkgname=$1
+    local backup_info_p=$2
+    local show_diff_p=$3
+    local diff_only_p=$4
+    local with_package_name=$5
+
+    local configs
+    local backup_suffix
+
+    configs=$(rpm -qlc "${pkgname}")
+    if [[ $? != 0 ]]; then
+	return 1
+    fi
+
+    rpm -q --queryformat "[%{FILENAMES}\t%{FILEFLAGS:fflags}\n]" "${pkgname}" \
+	| while read file flags; do
+	if member_stream "${file}" <<< "${configs}"; then
+	    if [[ -z "${diff_only_p}" ]]; then
+		if [[ -n "${with_package_name}" ]]; then
+		    printf "${pkgname}:"
+		fi
+		
+		printff "${file}" "${flags}"
+		if [[ ! -e "${conf_file}" ]]; then
+		    printf "NOTFOUND "
+		fi
+
+		if [[ -n "${backup_info_p}" ]]; then
+		    # TODO: "~" ".bak"
+		    for backup_suffix in ".rpmnew" ".rpmorig" ".rpmsave"; do
+			if [[ -e "${file}${backup_suffix}" ]]; then
+			    if [[ "${backup_suffix}" == .rpm* ]]; then
+				backup_suffix=${backup_suffix:1}
+				backup_suffix=${backup_suffix^^*}
+				printf "%s " "${backup_suffix}"
+			    else
+				printf "backup:%s " "${backup_suffix}"
+			    fi
+			fi
+		    done
+		fi
+		echo
+	    fi
+	    
+	    if [[ -n "${show_diff_p}" ]]; then
+		for backup_suffix in ".rpmnew" ".rpmorig" ".rpmsave"; do
+		    if [[ -e "${file}${backup_suffix}" ]]; then
+			diff -ruN "${file}" "${file}${backup_suffix}"
+		    fi
+		done
+	    fi
+	fi
+    done
+}
+
+function main
+{
+    local pkgname
+    local file
+    local flags
+    local backup_info_p
+    local show_diff_p
+    local diff_only_p
+    local print_package_name
+    local package_file_p
+    local with_package_file
+
+    while [[ $# -gt 0 ]]; do
+	case "$1" in
+	    (-h|--help)
+		help
+		return 0
+		;;
+	    (--package-file|-p)
+		package_file_p=1
+		shift
+		;;
+	    (--print-package-file|-f)
+		with_package_file=1
+		shift
+		;;
+	    (--print-package-name|-n)
+		print_package_name=1
+		shift
+		;;
+	    (--backup-info|-b)
+		backup_info_p=1
+		shift
+		;;
+	    (--diff-only|-D)
+		show_diff_p=1
+		diff_only_p=1
+		shift
+		;;
+	    (--show-diff|-d)
+		show_diff_p=1
+		shift
+		;;
+	    (-*)
+		err "Unknown option: $1"
+		return 1
+		;;
+	    (*)
+		break
+		;;
+	esac
+    done
+
+
+    if [[ -z "${1}" ]]; then
+
+	if [[ -n "${package_file_p}" ]]; then
+	    err "no package file is given"
+	    return 1
+	fi
+
+	for pkgname in $(rpm -qa); do
+	    run_lsrpmconfig_for_name "${pkgname}" "${backup_info_p}" "${show_diff_p}" "${diff_only_p}" "${print_package_name}"
+	done
+    else
+	if [[ -z "${package_file_p}" ]]; then
+	    for pkgname in "$@"; do
+		if ! rpm -qi "${pkgname}" > /dev/null 2>&1; then
+		    err "no such package: ${pkgname}"
+		    return 1
+		fi
+	    done
+	    for pkgname in "$@"; do
+		run_lsrpmconfig_for_name "${pkgname}" "${backup_info_p}" "${show_diff_p}" "${diff_only_p}" "${print_package_name}"
+	    done
+	else
+	    local pkgfile
+	    for pkgfile in "$@"; do
+		if [[ ! -e "${pkgfile}" ]]; then
+		    err "No such file: ${pkgfile}"
+		    return 1
+		elif [[ ! -f "${pkgfile}" ]]; then
+		    err "Not a regular file: ${pkgfile}"
+		    return 1
+		elif [[ ! -r "${pkgfile}" ]]; then
+		    err "Not readable: ${pkgfile}"
+		    return 1
+		fi
+	    done
+
+	    for pkgfile in "$@"; do
+		run_lsrpmconfig_for_file "${pkgfile}" "${with_package_file}"
+	    done
+	fi
+	
+
+    fi
+
+    return 0
+}
+
+main "$@"
