@@ -1,0 +1,28 @@
+#!/usr/bin/python
+
+import os
+import sys
+
+
+def sort_env():
+    return reversed(sorted(os.environ.items()))
+
+
+def format_env(env):
+    lines = []
+    for key, value in env:
+        lines.append('%s=%s' % (key, value))
+    return '\n'.join(lines)
+
+
+def main(args):
+    sorted_env = sort_env()
+    output = format_env(sorted_env)
+
+    print(output)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[:]))
