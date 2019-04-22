@@ -1,2 +1,2 @@
 #!/bin/bash
-flake8 --config=/home/adrian/.tox.ini.flake8 "$@"
+flake8 --config=/home/adrian/.tox.ini.flake8b "$@"
