@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# Add timestamps in a normal ish format to stdout using the 'ts'
+# tool from the 'moreutils' package
+#
+# $ some_process| stdout_timestamp
+#
+ts "$@" "%b %d %H:%M:%.S"
