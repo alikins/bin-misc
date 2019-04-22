@@ -10,6 +10,6 @@
 #
 # Note: Doesn't understand c modules/.so's 
 module_name="${1}"
-pycli="import ${module_name} as the_module; f=the_module.__file__; print f if f.endswith('py') else f[:-1]"
+pycli="import ${module_name} as the_module; f=the_module.__file__; print(f) if f.endswith('py') else f[:-1]"
 pyfile=$(python -c "${pycli}")
 vim "${pyfile}"
