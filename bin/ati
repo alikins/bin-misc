@@ -1,6 +1,9 @@
 #!/bin/bash -x
 
-DOCKER=centos7
+DOCKER="${DOCKER:-centos7}"
 VERBOSE="${VERBOSE:--vvv}"
+EXCLUDE="${EXCLUDE:---exclude=cloud/}"
+: ${EXCLUDE:=--exclude=cloud/}
+DOCKER_PRIV="--docker-privileged"
 
-ansible-test integration ${VERBOSE} --docker "${DOCKER}" "$@"
+ansible-test integration "${DOCKER_PRIV}" "${VERBOSE}" --docker "${DOCKER}" "${EXCLUDE}" "$@"
