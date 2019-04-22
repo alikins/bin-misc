@@ -1,6 +1,9 @@
 backup_history: backup .bash_history
 count_files_per_dir.sh: count files in each dir recurisvely,
                         use piped to 'sort -n'
+echo_args_stderr_exit_1: Echo the cli args to stderr and exit with return code 1.
+                         For testing/troubleshooting tools that build clis and handle
+                         stderr and non-0 exit codes.
 parse_names: parse a particular yaml file of dns/bind config
 show-path*: show various important paths for various tools
             (ie, PYTHONPATH, GEM_PATH, sys.path, etc)
