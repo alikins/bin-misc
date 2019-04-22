@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # try to be python 2/3 ish
 
@@ -6,7 +6,7 @@ import sys
 import site
 import os
 
-print "sys.argv:", sys.argv
+print("sys.argv: %s" % sys.argv)
 
 print("env vars")
 print("PATH: %s" % os.environ.get('PATH'))
@@ -29,11 +29,14 @@ print("python site.py (+sitcustomize)")
 print("site.PREFIXES: %s" % site.PREFIXES)
 print("site.USER_SITE: %s" % site.USER_SITE)
 print("site.USER_BASE: %s" % site.USER_BASE)
-print("site.getsitepackages(): \n\t%s" % '\n\t'.join(site.getsitepackages()))
+try:
+    print("site.getsitepackages(): \n\t%s" % '\n\t'.join(site.getsitepackages()))
+except AttributeError:
+    print('# no site.getsitepackages')
 
 try:
     import sitecustomize
-except ImportError, e:
+except ImportError as e:
     print(e)
     sys.exit()
 
