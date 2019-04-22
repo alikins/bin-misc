@@ -1,4 +1,6 @@
 backup_history: backup .bash_history
+count_files_per_dir.sh: count files in each dir recurisvely,
+                        use piped to 'sort -n'
 parse_names: parse a particular yaml file of dns/bind config
 show-path*: show various important paths for various tools
             (ie, PYTHONPATH, GEM_PATH, sys.path, etc)
