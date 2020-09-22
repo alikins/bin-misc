@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#GIT_REPOS="subscription-manager python-rhsm candlepin"
+GIT_REPOS="ansible-setup bin-misc dotfiles-shared dotfiles-private"
+
+for GIT_REPO in $GIT_REPOS ; 
+do 
+    echo "${GIT_REPO}"
+    pushd "${HOME}/src/${GIT_REPO}"
+    git "$@" status -u
+    popd
+done
+
