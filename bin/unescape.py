@@ -6,9 +6,6 @@ import fileinput
 
 def process(line):
     clean_line, _ = codecs.escape_decode(line)
-    clean_line2 = codecs.escape_decode(clean_line)
-    # return(clean_line2)
-    #print(clean_line2)
     return(clean_line.decode('utf-8'))
 
 
